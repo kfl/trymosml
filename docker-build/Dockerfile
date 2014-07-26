@@ -17,6 +17,6 @@ RUN apt-get install -y adduser && \
 WORKDIR /home/mosmluser
 USER mosmluser
 
-CMD ["-P full", "-liberal"]
+CMD ["-P", "full", "-liberal"]
 ENTRYPOINT ["/usr/bin/mosml"]
 
