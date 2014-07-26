@@ -1,0 +1,102 @@
+/*
+
+  Colour palette:
+    light: #F2C991 (linen/white)
+    dark: #071E26 (blue)
+    medium: #638B8 (blueish)
+    dark2: #5C1A24 (red)
+    medium2: #C73535 (red)
+
+*/
+@import url(http://fonts.googleapis.com/css?family=Droid+Serif|Droid+Sans:700|Inconsolata);
+
+body {
+   background: white;
+   /* color: #F2C991; */
+   font-family: 'Droid Serif', serif;
+}
+
+h1 {
+//   color: #638B8B;
+}
+
+footer {
+  padding-top: 9px;
+  margin-top: 9px;
+  margin-bottom: 9px;
+  border-top: 1px solid #EEE;
+}
+
+.mainarea {
+//  background: white;
+}
+
+.scratchpad {
+   /* width: 600px; */
+   height: 200px;
+   font-family: 'Inconsolata', monospace;
+   /* -webkit-border-radius: 3px; */
+   /* -moz-border-radius: 3px; */
+   /* border-radius: 3px; */
+}
+
+.CodeMirror {
+   border: 1px solid #ccc;
+   /* width: 618px; */
+   height: 200px;
+   font-family: 'Inconsolata', monospace;
+   -webkit-border-radius: 3px;
+   -moz-border-radius: 3px;
+   border-radius: 3px;
+ }
+
+.mosml-console {
+   font-family: 'Inconsolata', monospace;
+}
+
+.mosml-console div.jquery-console-inner { 
+   /* width: 600px; */
+   height: 200px;
+   resize: both;
+   background: black;
+   padding: 10px;
+   -webkit-border-radius: 3px;
+   -moz-border-radius: 3px;
+   border-radius: 3px;
+   overflow: auto; 
+}
+.mosml-console div.jquery-console-prompt-box { 
+   color:#fff;
+   display: inline;
+}
+
+.jquery-console-message{ 
+   display: inline;
+}
+
+.mosml-console div.jquery-console-focus span.jquery-console-cursor {
+   background:#fefefe; 
+   color:#333;
+   font-weight:bold 
+}
+
+.trymosml-error { 
+   color:#ef0505;
+   display: block;
+   font-family: 'Droid Sans', sans-serif; 
+   font-weight:bold;
+   padding:0.1em; 
+}
+
+.trymosml-info {
+   color:#52666f; 
+   display: block;
+   padding:0.1em;
+}
+
+.mosml-console .mosml-output {
+   color:#1ad027;
+   padding:0.1em;
+}
+/*.mosml-console span.jquery-console-prompt-label { font-weight:bold }
+*/

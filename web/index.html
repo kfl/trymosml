@@ -2,58 +2,62 @@
 <html>
   <head>
     <meta charset="utf8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
     <title>Try Moscow ML</title>
-    <style type="text/css" media="screen">
-      .mosml-console div.jquery-console-inner { 
-           width: 900px; 
-           height: 200px; 
-           background: #333; 
-           padding: 0.5em;
-           overflow: auto; 
-      }
-      .mosml-console div.jquery-console-prompt-box { 
-           color:#fff;
-           font-family:monospace;
-           display: inline;
-      }
+    <link rel="stylesheet" href="lib/codemirror.css">
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="trymosml.css"
+          media="screen" />
 
-      .jquery-console-message{ 
-           display: inline;
-      }
-
-      .mosml-console div.jquery-console-focus span.jquery-console-cursor {
-           background:#fefefe; 
-           color:#333;
-           font-weight:bold 
-      }
-      
-      .trymosml-error { 
-           color:#ef0505;
-           display: block;
-           font-family:sans-serif; 
-           font-weight:bold;
-           padding:0.1em; 
-      }
-      
-      .trymosml-info {
-           color:#52666f; 
-           display: block;
-           font-family:monospace;
-           padding:0.1em;
-      }
-      .mosml-console .mosml-output {
-           color:#1ad027;
-           font-family:monospace;
-           padding:0.1em;
-      }
-      .mosml-console span.jquery-console-prompt-label { font-weight:bold }
-    </style>
-    <script type="text/javascript" src="jquery-2.1.1.min.js"></script>
-    <script type="text/javascript" src="jquery.console.js"></script>
-    <script type="text/javascript" src="trymosml.js"></script>
   </head>
   <body>
-    <h1>Try Moscow ML</h1>
-    <div class="mosml-console"></div>
+    <div class="container">
+      <div class="page-header">
+        <h1>Try Moscow ML</h1>
+        <!-- <p class="lead">.</p> -->
+      </div>
+      <div class="row mainarea">
+        <div class="col-md-8">
+          <p><textarea class="form-control scratchpad">(* A scratchpad for your code *)
+fun fact 1 = 1
+  | fact n = n * fact(n-1);</textarea>
+          </p>
+          <p class="text-right">
+          <button type="button" class="run-code btn btn-success">
+            Run Code <span class="glyphicon glyphicon-arrow-down"></span>
+          </button>
+          <button type="button" class="reset-console btn btn-danger">
+            Reset Console <span class="glyphicon glyphicon-repeat"></span>
+          </button>
+          </p>
+          <div class="mosml-console"></div>
+        </div>
+        <div class="col-md-4">
+          <p>This is simple web-based environment for experimenting
+             with SML code.</p>
+          <p>Press <kbd>Ctrl+b</kbd> to send the content of the editor
+          to the toplevel.</p>
+
+        </div>
+      </div>
+     <footer>
+       <p>Try Moscow ML by @kfl, concept inspired
+         by <a href="http://tryhaskell.org">Try Haskell</a>, and
+         console powered
+         by <a href="http://github.com/chrisdone/jquery-console">jquery-console</a>.
+       </p>
+     </footer>
+    </div><!-- /.container -->
+
+
+    
+    
+
+    <script type="text/javascript" src="jquery-2.1.1.min.js"></script>
+    <script type="text/javascript" src="jquery.console.js"></script>
+    <script src="lib/codemirror.js"></script>    
+    <script src="js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="trymosml.js"></script>
   </body>
 </html>

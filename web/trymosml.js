@@ -8,9 +8,10 @@ trymosml.makeController = function(){
             trymosml.wsSendCommand(line);
             return '\n';
         },
-        autofocus: true,
+        autofocus: false,
         animateScroll: true,
-        promptHistory: true
+        promptHistory: true,
+        fadeOnReset: false
 //        welcomeMessage: 'Type SML in here.',
 //        continuedPromptLabel: ''
     });
@@ -62,10 +63,12 @@ trymosml.connectWebsocket = function (url) {
 
 	trymosml.ws.onopen = function(ev) {
         everConnected = true;
+        $(".run-code").prop('disabled', false);
 		trymosml.consoleInfo('Connected to Moscow ML server');
 	};
 	trymosml.ws.onclose = function(ev) {
 		trymosml.consoleInfo('Connection closed to Moscow ML server');
+        $(".run-code").prop('disabled', true);
 		trymosml.ws = null;
 	};
 	trymosml.ws.onmessage = function(ev) {
@@ -79,9 +82,51 @@ trymosml.connectWebsocket = function (url) {
 	};
 };
 
+trymosml.sendEditorContent = function () {
+    var content = trymosml.editor.getValue();
+    trymosml.wsSendCommand(content);
+};
+
+trymosml.resetConsole = function () {
+    if (trymosml.ws) {
+        var oldClose = trymosml.ws.onclose;
+        trymosml.ws.onclose = function () {
+            if(oldClose) oldClose();
+            trymosml.controller.reset();
+            trymosml.connectWebsocket('ws://'+trymosml.url);
+        };
+        trymosml.ws.close();
+    } else {
+        trymosml.controller.reset();
+        trymosml.connectWebsocket('ws://'+trymosml.url);
+    }
+};
+
+
+trymosml.makeEditor = function () {
+    var scratchpad = $('.scratchpad')[0];
+    trymosml.editor = CodeMirror.fromTextArea(scratchpad, {
+        mode: "text/plain",
+        autofocus: true,
+        lineNumbers: true,
+        extraKeys: {
+            "Ctrl-B": trymosml.sendEditorContent
+        }
+    });
+};
+
+
+trymosml.url = 'localhost:4242';
+
+
 // Main entry point.
 $(function(){
-    var trymosmlUrl = 'localhost:4243';
+    $(".run-code").prop('disabled', true);
+    $(".run-code").click(trymosml.sendEditorContent);
+    $(".reset-console").click(trymosml.resetConsole);
+
     trymosml.makeController();
-    trymosml.connectWebsocket('ws://'+trymosmlUrl);
+    trymosml.connectWebsocket('ws://'+trymosml.url);
+    trymosml.makeEditor();
+    
 });
