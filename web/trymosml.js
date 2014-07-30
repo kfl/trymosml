@@ -106,7 +106,7 @@ trymosml.resetConsole = function () {
 trymosml.makeEditor = function () {
     var scratchpad = $('.scratchpad')[0];
     trymosml.editor = CodeMirror.fromTextArea(scratchpad, {
-        mode: "text/plain",
+        mode: "text/x-sml",
         autofocus: true,
         lineNumbers: true,
         extraKeys: {
