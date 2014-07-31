@@ -1,122 +1,146 @@
-trymosml = {};
-
-// Make the console controller.
-trymosml.makeController = function(){
-    trymosml.controller = $('.mosml-console').console({
-        promptLabel: '\u200b',   // zero width space, hack.
-        commandHandle: function(line){
-            trymosml.wsSendCommand(line);
-            return '\n';
-        },
-        autofocus: false,
-        animateScroll: true,
-        promptHistory: true,
-        fadeOnReset: false
-//        welcomeMessage: 'Type SML in here.',
-//        continuedPromptLabel: ''
-    });
-};
-
-trymosml.consoleReport = function(kind, msg) {
-    trymosml.controller.report([{msg: msg, className: kind}]);
-};
-
-trymosml.consoleError = function(msg) {
-	trymosml.consoleReport('trymosml-error', msg);
-};
-
-trymosml.consoleInfo = function(msg) {
-	trymosml.consoleReport('trymosml-info', msg);
-};
+var trymosml = function(){
+    // Exported functions
+    extern = {};
+    extern.makeController = makeController;
+    extern.connectWebsocket = connectWebsocket;
+    extern.makeEditor = makeEditor;
+    extern.sendEditorContent = sendEditorContent;
+    extern.resetConsole = resetConsole;
 
 
-trymosml.consoleWrite = function(msg) {
-	trymosml.consoleReport('mosml-output', msg);
-};
 
-// The mosml websocket
-trymosml.ws = null;
 
-// Send the given line to the server via the trymosml.ws websocket.
-trymosml.wsSendCommand = function(line) {
-	if (trymosml.ws) {
-		try {
-			trymosml.ws.send(line);
-		} catch (ex) {
-			trymosml.consoleError('Cannot send: ' + ex);
-		}
-	} else {
-		trymosml.consoleError('Cannot send: not connected to server');
-	}
-};
+    var controller = null;
 
-trymosml.connectWebsocket = function (url) {
-	try {
-		trymosml.ws = new WebSocket(url);
-	} catch (ex) {
-		trymosml.consoleError('Cannot connect: ' + ex);
-		trymosml.ws = null;
-		return;
-	}
+    // Make the console controller.
+    function makeController(){
+        controller = $('.mosml-console').console({
+            promptLabel: '\u200b',   // zero width space, hack.
+            commandHandle: function(line){
+                wsSendCommand(line);
+                return '\n';
+            },
+            autofocus: false,
+            animateScroll: true,
+            promptHistory: true,
+            fadeOnReset: false
+            //        welcomeMessage: 'Type SML in here.',
+            //        continuedPromptLabel: ''
+        });
+    };
 
-    var everConnected = false;
+    function consoleReport(kind, msg) {
+        controller.report([{msg: msg, className: kind}]);
+    };
 
-	trymosml.ws.onopen = function(ev) {
-        everConnected = true;
-        $(".run-code").prop('disabled', false);
-		trymosml.consoleInfo('Connected to Moscow ML server');
-	};
-	trymosml.ws.onclose = function(ev) {
-		trymosml.consoleInfo('Connection closed to Moscow ML server');
-        $(".run-code").prop('disabled', true);
-		trymosml.ws = null;
-	};
-	trymosml.ws.onmessage = function(ev) {
-		trymosml.consoleWrite(ev.data);
-	};
-	trymosml.ws.onerror = function(ev) {
-		trymosml.consoleError('Connection error');
-        if (! everConnected) {
-            trymosml.consoleError('Never managed to connect to Moscow ML server');
+    function consoleError(msg) {
+	    consoleReport('trymosml-error', msg);
+    };
+
+    function consoleInfo(msg) {
+	    consoleReport('trymosml-info', msg);
+    };
+
+    function consoleWrite(msg) {
+	    consoleReport('mosml-output', msg);
+    };
+
+    // The mosml websocket
+    var ws = null;
+
+    // Send the given line to the server via the ws websocket.
+    function wsSendCommand(line) {
+	    if (ws) {
+		    try {
+			    ws.send(line);
+		    } catch (ex) {
+			    consoleError('Cannot send: ' + ex);
+		    }
+	    } else {
+		    consoleError('Cannot send: not connected to server');
+	    }
+    };
+
+    function webSocketUrl() {
+        var re = new RegExp('^(http)(s)?://([^/]*)(/.*)$');
+        var match = location.href.match(re);
+        if (match) {
+            var wsUrl = 'ws' + (match[2] || '') + '://' + match[3] + match[4];
+            return wsUrl;
+        } else {
+            return 'ws://try.mosml.org';
         }
-	};
-};
-
-trymosml.sendEditorContent = function () {
-    var content = trymosml.editor.getValue();
-    trymosml.wsSendCommand(content);
-};
-
-trymosml.resetConsole = function () {
-    if (trymosml.ws) {
-        var oldClose = trymosml.ws.onclose;
-        trymosml.ws.onclose = function () {
-            if(oldClose) oldClose();
-            trymosml.controller.reset();
-            trymosml.connectWebsocket('ws://'+trymosml.url);
-        };
-        trymosml.ws.close();
-    } else {
-        trymosml.controller.reset();
-        trymosml.connectWebsocket('ws://'+trymosml.url);
     }
-};
 
+    function connectWebsocket () {
+        var url = webSocketUrl();
+	    try {
+		    ws = new WebSocket(url);
+	    } catch (ex) {
+		    consoleError('Cannot connect: ' + ex);
+		    ws = null;
+		    return;
+	    }
 
-trymosml.makeEditor = function () {
-    var scratchpad = $('.scratchpad')[0];
-    trymosml.editor = CodeMirror.fromTextArea(scratchpad, {
-        mode: "text/x-sml",
-        autofocus: true,
-        lineNumbers: true,
-        extraKeys: {
-            "Ctrl-B": trymosml.sendEditorContent
+        var everConnected = false;
+
+	    ws.onopen = function(ev) {
+            everConnected = true;
+            $(".run-code").prop('disabled', false);
+		    consoleInfo('Connected to Moscow ML server');
+	    };
+	    ws.onclose = function(ev) {
+		    consoleInfo('Connection closed to Moscow ML server');
+            $(".run-code").prop('disabled', true);
+		    ws = null;
+	    };
+	    ws.onmessage = function(ev) {
+		    consoleWrite(ev.data);
+	    };
+	    ws.onerror = function(ev) {
+		    consoleError('Connection error');
+            if (! everConnected) {
+                consoleError('Never managed to connect to Moscow ML server');
+            }
+	    };
+    };
+
+    function sendEditorContent() {
+        var content = editor.getValue();
+        wsSendCommand(content);
+    };
+
+    function resetConsole () {
+        if (ws) {
+            var oldClose = ws.onclose;
+            ws.onclose = function () {
+                if(oldClose) oldClose();
+                controller.reset();
+                connectWebsocket();
+            };
+            ws.close();
+        } else {
+            controller.reset();
+            connectWebsocket();
         }
-    });
-};
+    };
 
+    var editor = null;
 
-trymosml.url = 'localhost:4242';
+    function makeEditor () {
+        var scratchpad = $('.scratchpad')[0];
+        editor = CodeMirror.fromTextArea(scratchpad, {
+            mode: "text/x-sml",
+            autofocus: true,
+            lineNumbers: true,
+            extraKeys: {
+                "Ctrl-B": sendEditorContent
+            }
+        });
+    };
+
+    return extern;
+}();
 
 
 // Main entry point.
@@ -126,7 +150,7 @@ $(function(){
     $(".reset-console").click(trymosml.resetConsole);
 
     trymosml.makeController();
-    trymosml.connectWebsocket('ws://'+trymosml.url);
+    trymosml.connectWebsocket();
     trymosml.makeEditor();
     
 });
