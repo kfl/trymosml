@@ -52,44 +52,46 @@ footer {
 
 .mosml-console {
    font-family: 'Inconsolata', monospace;
-}
-
-.mosml-console div.jquery-console-inner { 
-   /* width: 600px; */
-   height: 200px;
-   resize: both;
    background: black;
-   padding: 10px;
    -webkit-border-radius: 3px;
    -moz-border-radius: 3px;
+   resize: both;
    border-radius: 3px;
-   overflow: auto; 
 }
-.mosml-console div.jquery-console-prompt-box { 
+
+.mosml-console div.jquery-console-inner {
+   /* width: 600px; */
+   height: 200px;
+   padding: 10px;
+   overflow: auto;
+   resize: both;
+}
+
+.mosml-console div.jquery-console-prompt-box {
    color:#fff;
    display: inline;
 }
 
-.jquery-console-message{ 
+.jquery-console-message {
    display: inline;
 }
 
 .mosml-console div.jquery-console-focus span.jquery-console-cursor {
-   background:#fefefe; 
+   background:#fefefe;
    color:#333;
-   font-weight:bold 
+   font-weight:bold
 }
 
-.trymosml-error { 
+.trymosml-error {
    color:#ef0505;
    display: block;
-   font-family: 'Droid Sans', sans-serif; 
+   font-family: 'Droid Sans', sans-serif;
    font-weight:bold;
-   padding:0.1em; 
+   padding:0.1em;
 }
 
 .trymosml-info {
-   color:#52666f; 
+   color:#52666f;
    display: block;
    padding:0.1em;
 }
