@@ -24,7 +24,9 @@ fun fact 1 = 1
   | fact n = n * fact(n-1);</textarea>
           </p>
           <p class="text-right">
-          <button type="button" class="run-code btn btn-success">
+          <!-- <span class="console-status">Loading webpage</span> -->
+
+          <button type="button" disabled="disabled" class="run-code btn btn-success">
             Run Code <span class="glyphicon glyphicon-arrow-down"></span>
           </button>
           <button type="button" class="reset-console btn btn-danger">
@@ -50,7 +52,7 @@ fun fact 1 = 1
 
           <h4>Console keybindings</h4>
           <p>Use arrows for history.</p>
-          <p>Press <kbd>Ctrl+c</kbd> to interrupt the interpreter *not
+          <p>Press <kbd>Ctrl+c</kbd> to interrupt the interpreter (not
           working, yet).</p>
 
 
