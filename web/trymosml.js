@@ -186,7 +186,7 @@ var trymosml = function(){
 
     function loadExample(file) {
         $.get("examples/"+file, function(content) {
-                $(".buffer-name").text(file.name);
+                $(".buffer-name").text(file);
                 editor.setValue(content);            
         });
         return false;
