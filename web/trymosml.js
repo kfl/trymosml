@@ -6,6 +6,9 @@ var trymosml = function(){
     extern.makeEditor = makeEditor;
     extern.sendEditorContent = sendEditorContent;
     extern.resetConsole = resetConsole;
+    extern.loadLocalFileInEditor = loadLocalFileInEditor;
+    extern.saveEditorToLocalFile = saveEditorToLocalFile;
+    extern.loadExample = loadExample;
 
 
 
@@ -139,6 +142,58 @@ var trymosml = function(){
         });
     };
 
+    function loadLocalFileInEditor(evt) {
+        var file = evt.target.files[0]; 
+
+        if (file) {
+            var reader = new FileReader();
+            reader.onload = function(e) { 
+	            var content = e.target.result;
+                $(".buffer-name").text(file.name);
+                editor.setValue(content);
+            }
+            reader.readAsText(file);
+        } else { 
+            alert("Failed to load file");
+        }
+    };
+
+
+    function saveEditorToLocalFile() {
+        var content = editor.getValue();
+        var textFileAsBlob = new Blob([content], {type:'text/plain'});
+        var fileNameToSaveAs = $(".buffer-name").text();
+
+        var downloadLink = document.createElement("a");
+        downloadLink.download = fileNameToSaveAs;
+        downloadLink.innerHTML = "Download File";
+        if (window.webkitURL != null) {
+            // Chrome allows the link to be clicked
+            // without actually adding it to the DOM.
+            downloadLink.href = window.webkitURL.createObjectURL(textFileAsBlob);
+        } else {
+            // Firefox requires the link to be added to the DOM
+            // before it can be clicked.
+            downloadLink.href = window.URL.createObjectURL(textFileAsBlob);
+            downloadLink.onclick = function (event) {
+	            document.body.removeChild(event.target);
+            };
+            downloadLink.style.display = "none";
+            document.body.appendChild(downloadLink);
+        }
+        downloadLink.click();
+    };
+
+    function loadExample(file) {
+        $.get("examples/"+file, function(content) {
+                $(".buffer-name").text(file.name);
+                editor.setValue(content);            
+        });
+        return false;
+    }
+    
+
+
     return extern;
 }();
 
@@ -148,6 +203,15 @@ $(function(){
     $(".run-code").prop('disabled', true);
     $(".run-code").click(trymosml.sendEditorContent);
     $(".reset-console").click(trymosml.resetConsole);
+
+
+    $("#file-browser").on("change", trymosml.loadLocalFileInEditor);
+    $(".open-file").click(function(ev) {
+        $("#file-browser").click();
+        
+    });
+    $(".save-file").click(trymosml.saveEditorToLocalFile);
+    
 
     trymosml.makeController();
     trymosml.connectWebsocket();

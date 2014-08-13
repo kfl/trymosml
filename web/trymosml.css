@@ -32,6 +32,22 @@ footer {
 //  background: white;
 }
 
+.editor-menubar {
+   margin-bottom: 0px;
+}
+
+.buffer-name {
+   /* font-family: 'Inconsolata', monospace; */
+}
+
+.file-name {
+   font-family: 'Inconsolata', monospace;
+}
+
+#file-browser {
+   display: none;
+}
+
 .scratchpad {
    /* width: 600px; */
    height: 200px;
@@ -51,21 +67,17 @@ footer {
    border-radius: 3px;
  }
 
-.mosml-console {
-   font-family: 'Inconsolata', monospace;
-   background: black;
-   -webkit-border-radius: 3px;
-   -moz-border-radius: 3px;
-   resize: both;
-   border-radius: 3px;
-}
-
 .mosml-console div.jquery-console-inner {
    /* width: 600px; */
    height: 200px;
    padding: 10px;
    overflow: auto;
    resize: both;
+   font-family: 'Inconsolata', monospace;
+   background: black;
+   -webkit-border-radius: 3px;
+   -moz-border-radius: 3px;
+   border-radius: 3px;
 }
 
 .mosml-console div.jquery-console-prompt-box {
