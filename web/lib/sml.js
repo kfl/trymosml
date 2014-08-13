@@ -88,22 +88,75 @@ CodeMirror.defineMode('sml', function(_config, parserConfig) {
       return null;
     }
     if (ch === '~') {
+        if (stream.peek() === '0') {
+            stream.next(); // drop '0'
+            if (stream.peek() === 'x' ) {
+                stream.next();  // drop 'x' 
+                if (stream.eatWhile(/[A-Fa-f0-9]/)) {
+                    return 'number';
+                }
+                return 'error';
+            }
+            if (stream.peek() === 'w') {
+                stream.next();  // drop 'w'
+                if (stream.peek() === 'x' ) {
+                    stream.next();  // drop 'x' 
+                    if (stream.eatWhile(/[A-Fa-f0-9]/)) {
+                        return 'number';
+                    }
+                } else if (stream.eatWhile(/[\d]/)) {
+                    return 'number';
+                }
+                return 'error';
+            }
+            stream.eatWhile(/[\d]/);
+            if (stream.eat('.')) {
+                stream.eatWhile(/[\d]/);
+            }
+            return 'number';
+        }
         if (stream.eatWhile(/[\d]/)) {
             if (stream.eat('.')) {
+                stream.eatWhile(/[\d]/);
+            }
+            if (stream.eat(/[eE]/)) {
+                stream.eat('~');
                 stream.eatWhile(/[\d]/);
             }
             return 'number';
         }
         return null;
     }
+    if (ch === '0' && stream.peek() === 'x' ) {
+        stream.next();  // drop 'x' 
+        if (stream.eatWhile(/[A-Fa-f0-9]/)) {
+            return 'number';
+        }
+        return 'error';
+    }
+    if (ch === '0' && stream.peek() === 'w') {
+        stream.next();  // drop 'w'
+        if (stream.peek() === 'x' ) {
+            stream.next();  // drop 'x' 
+            if (stream.eatWhile(/[A-Fa-f0-9]/)) {
+                return 'number';
+            }
+        } else if (stream.eatWhile(/[\d]/)) {
+            return 'number';
+        }
+        return 'error';
+    }
     if (/\d/.test(ch)) {
       stream.eatWhile(/[\d]/);
       if (stream.eat('.')) {
         stream.eatWhile(/[\d]/);
       }
+      if (stream.eat(/[eE]/)) {
+          stream.eat('~');
+          stream.eatWhile(/[\d]/);
+      }
       return 'number';
     }
-    /* TODO deal with word litterals */
 
     if (ch === '*') {
       if (stream.eat(')')) {

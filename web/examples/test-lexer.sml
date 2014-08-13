@@ -12,6 +12,8 @@ val negInt = ~4611686018427387904
 val pi = 3.14159265358979323846
 val eps = 1E~14
 
+val negZero = ~0
+
 val id = fn x => x
 
 val minInt1 = ~1073741824;
