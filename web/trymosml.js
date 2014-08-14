@@ -6,6 +6,8 @@ var trymosml = function(){
     extern.makeEditor = makeEditor;
     extern.sendEditorContent = sendEditorContent;
     extern.resetConsole = resetConsole;
+
+    extern.newFile = newFile;
     extern.loadLocalFileInEditor = loadLocalFileInEditor;
     extern.saveEditorToLocalFile = saveEditorToLocalFile;
     extern.loadExample = loadExample;
@@ -143,21 +145,28 @@ var trymosml = function(){
     };
 
     function newFile() {
-
+        var filename = prompt("Name for new file", "mycode.sml");
+        if (filename) {
+            // TODO: check that we have a valid filename
+            editor.setValue('');
+            $(".buffer-name").text(filename);
+            editor.focus();
+        }
     };
 
     function loadLocalFileInEditor(evt) {
-        var file = evt.target.files[0]; 
+        var file = evt.target.files[0];
 
         if (file) {
             var reader = new FileReader();
-            reader.onload = function(e) { 
+            reader.onload = function(e) {
 	            var content = e.target.result;
                 $(".buffer-name").text(file.name);
                 editor.setValue(content);
+                editor.focus();
             }
             reader.readAsText(file);
-        } else { 
+        } else {
             alert("Failed to load file");
         }
     };
@@ -177,16 +186,18 @@ var trymosml = function(){
         };
         document.body.appendChild(downloadLink);
         downloadLink.click();
+        editor.focus();
     };
 
     function loadExample(file) {
         $.get("examples/"+file, function(content) {
-                $(".buffer-name").text(file);
-                editor.setValue(content);            
+            $(".buffer-name").text(file);
+            editor.setValue(content);
+            editor.focus();
         });
         return false;
     }
-    
+
 
 
     return extern;
@@ -202,14 +213,15 @@ $(function(){
 
     $("#file-browser").on("change", trymosml.loadLocalFileInEditor);
     $(".open-file").click(function(ev) {
+        ev.preventDefault();
         $("#file-browser").click();
-        
+
     });
     $(".save-file").click(trymosml.saveEditorToLocalFile);
-    
+    $(".new-file").click(trymosml.newFile);
 
     trymosml.makeController();
     trymosml.connectWebsocket();
     trymosml.makeEditor();
-    
+
 });
