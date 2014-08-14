@@ -144,7 +144,9 @@ var trymosml = function(){
         });
     };
 
-    function newFile() {
+    function newFile(ev) {
+        ev.preventDefault();
+
         var filename = prompt("Name for new file", "mycode.sml");
         if (filename) {
             // TODO: check that we have a valid filename
@@ -172,7 +174,8 @@ var trymosml = function(){
     };
 
 
-    function saveEditorToLocalFile() {
+    function saveEditorToLocalFile(ev) {
+        ev.preventDefault();
         var content = editor.getValue();
         var textFileAsBlob = new Blob([content], {type:'text/plain'});
         var fileNameToSaveAs = $(".buffer-name").text();
@@ -219,6 +222,10 @@ $(function(){
     });
     $(".save-file").click(trymosml.saveEditorToLocalFile);
     $(".new-file").click(trymosml.newFile);
+    $(".load-example").click(function (ev) {
+        ev.preventDefault();
+        trymosml.loadExample($(ev.target).text());
+    });
 
     trymosml.makeController();
     trymosml.connectWebsocket();
