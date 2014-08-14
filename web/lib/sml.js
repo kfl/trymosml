@@ -165,6 +165,19 @@ CodeMirror.defineMode('sml', function(_config, parserConfig) {
       return null;
     }
 
+    if (ch === '#') {
+        var peek = stream.peek();
+        if (peek === '"') {
+            stream.next();
+            state.tokenize = tokenString;
+            return state.tokenize(stream, state);
+        } else if (/\d/.test(peek)) {
+            stream.eatWhile(/[\d]/);
+            return 'keyword';
+        }
+        return null;
+    } 
+
     // if ( /[+\-*&%=<>!?|]/.test(ch)) {
     //   return 'operator';
     // }
@@ -175,7 +188,7 @@ CodeMirror.defineMode('sml', function(_config, parserConfig) {
   }
 
   function tokenString(stream, state) {
-    var next, end = false, escaped = false;
+    var next, end = false, escaped = false, errors = false;
     while ((next = stream.next()) != null) {
       if (next === '"' && !escaped) {
         end = true;
@@ -187,9 +200,9 @@ CodeMirror.defineMode('sml', function(_config, parserConfig) {
       state.tokenize = tokenBase;
     }
 
+    errors = (!end) || errors;
 
-
-    return 'string';
+    return 'string'+(errors ? ' error' : '');
   };
 
   function tokenComment(stream, state) {
@@ -206,7 +219,8 @@ CodeMirror.defineMode('sml', function(_config, parserConfig) {
   }
 
   return {
-    startState: function() {return {tokenize: tokenBase, commentDepth: 0};},
+    startState: function() {return {tokenize: tokenBase, 
+                                    commentDepth: 0};},
     token: function(stream, state) {
       if (stream.eatSpace()) return null;
       return state.tokenize(stream, state);
