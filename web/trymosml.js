@@ -11,7 +11,8 @@ var trymosml = function(){
     extern.loadLocalFileInEditor = loadLocalFileInEditor;
     extern.saveEditorToLocalFile = saveEditorToLocalFile;
     extern.loadExample = loadExample;
-
+    extern.saveToDropbox = saveToDropbox;
+    extern.loadFromDropbox = loadFromDropbox;
 
 
 
@@ -201,7 +202,47 @@ var trymosml = function(){
         return false;
     }
 
+    function saveToDropbox(ev) {
+        ev.preventDefault();
+        var content = editor.getValue();
+        var fileNameToSaveAs = $(".buffer-name").text();
 
+        var dataUrl = "data:text/plain;base64," + btoa(content);
+        Dropbox.save(dataUrl, fileNameToSaveAs);
+    };
+
+    function loadFromDropbox(ev) {
+        ev.preventDefault();
+        function success (files) {
+            var file = files[0];
+            $.ajax({
+                url: file.link,
+                contentType: 'text/plain',
+                crossdomain: true,
+                xhrFields: {
+                    // The 'xhrFields' property sets additional fields on the XMLHttpRequest.
+                    // This can be used to set the 'withCredentials' property.
+                    // Set the value to 'true' if you'd like to pass cookies to the server.
+                    // If this is enabled, your server must respond with the header
+                    // 'Access-Control-Allow-Credentials: true'.
+                    withCredentials: false
+                },
+                type: 'GET',
+                success: function (resp) {
+                    $(".buffer-name").text(file.name);
+                    editor.setValue(resp.responseText);
+                    editor.focus();
+                }
+            });
+            // $.get(file.link, function(content) {
+            //     $(".buffer-name").text(file.name);
+            //     editor.setValue(content);
+            //     editor.focus();
+            // });
+        }
+        Dropbox.choose({success: success,
+                        multiselect: false});
+    };
 
     return extern;
 }();
@@ -226,6 +267,8 @@ $(function(){
         ev.preventDefault();
         trymosml.loadExample($(ev.target).text());
     });
+    $(".choose-dropbox").click(trymosml.loadFromDropbox);
+    $(".save-dropbox").click(trymosml.saveToDropbox);
 
     trymosml.makeController();
     trymosml.connectWebsocket();

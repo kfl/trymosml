@@ -44,6 +44,11 @@ footer {
    font-family: 'Inconsolata', monospace;
 }
 
+.dropbox-menu-header {
+   height: 28px;
+   width: auto;
+}
+
 #file-browser {
    display: none;
 }
