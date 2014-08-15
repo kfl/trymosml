@@ -15,8 +15,7 @@ RUN apt-get install -y adduser && \
     mosmluser
 
 WORKDIR /home/mosmluser
-USER mosmluser
 
-CMD ["-P", "full", "-liberal"]
-ENTRYPOINT ["/usr/bin/mosml"]
+ENTRYPOINT ulimit -p 5 ; su mosmluser -c '/usr/bin/mosml -P full -liberal'
+
 
