@@ -94,6 +94,7 @@ var trymosml = function(){
             everConnected = true;
             $(".run-code").prop('disabled', false);
 		    consoleInfo('Connected to Moscow ML server');
+            initialiseToplevel();
 	    };
 	    ws.onclose = function(ev) {
 		    consoleInfo('Connection closed to Moscow ML server');
@@ -111,8 +112,26 @@ var trymosml = function(){
 	    };
     };
 
+    var getAndUseName = "getAndUse";
+
+    function initialiseToplevel() {
+        var getAndUseDecl = ["fun ",getAndUseName," filename len = ", 
+                             "let val f = TextIO.openOut filename ",
+//                             '    val _ = print ("Getting ready for "^Int.toString len^" chars for "^filename^"\\n") '+
+                             "    val content = TextIO.inputN(TextIO.stdIn, len) ",
+                             "in  TextIO.output(f, content) ",
+                             "  ; TextIO.closeOut f ",
+                             "  ; use filename ",
+                             "end;"].join('');
+        wsSendCommand("Meta.quietdec := true;");
+        wsSendCommand(getAndUseDecl);
+        wsSendCommand("Meta.quietdec := false;");
+    }
+
     function sendEditorContent() {
         var content = editor.getValue();
+        var fname = $(".buffer-name").text();
+        wsSendCommand(getAndUseName+ ' "'+fname+'" ' + content.length + ';'); // FIXME deal with multibyte chars
         wsSendCommand(content);
     };
 
