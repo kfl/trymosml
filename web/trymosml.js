@@ -128,9 +128,17 @@ var trymosml = function(){
         wsSendCommand("Meta.quietdec := false;");
     }
 
+    function getBufferName() {
+        return $(".buffer-name").text();
+    }
+
+    function setBufferName(newName) {
+        $(".buffer-name").text(newName);
+    }
+
     function sendEditorContent() {
         var content = editor.getValue();
-        var fname = $(".buffer-name").text();
+        var fname = getBufferName();
         wsSendCommand(getAndUseName+ ' "'+fname+'" ' + content.length + ';'); // FIXME deal with multibyte chars
         setTimeout(function (){ wsSendCommand(content); }, 10); // Ugly hack to make sure that the getAndUse 
                                                                 // function is sent and started.
@@ -172,7 +180,7 @@ var trymosml = function(){
         if (filename) {
             // TODO: check that we have a valid filename
             editor.setValue('');
-            $(".buffer-name").text(filename);
+            setBufferName(filename);
             editor.focus();
         }
     };
@@ -184,7 +192,7 @@ var trymosml = function(){
             var reader = new FileReader();
             reader.onload = function(e) {
 	            var content = e.target.result;
-                $(".buffer-name").text(file.name);
+                setBufferName(file.name);
                 editor.setValue(content);
                 editor.focus();
             }
@@ -199,7 +207,7 @@ var trymosml = function(){
         ev.preventDefault();
         var content = editor.getValue();
         var textFileAsBlob = new Blob([content], {type:'text/plain'});
-        var fileNameToSaveAs = $(".buffer-name").text();
+        var fileNameToSaveAs = getBufferName();
 
         var downloadLink = document.createElement('a');
         downloadLink.download = fileNameToSaveAs;
@@ -215,7 +223,7 @@ var trymosml = function(){
 
     function loadExample(file) {
         $.get("examples/"+file, function(content) {
-            $(".buffer-name").text(file);
+            setBufferName(file);
             editor.setValue(content);
             editor.focus();
         });
@@ -225,7 +233,7 @@ var trymosml = function(){
     function saveToDropbox(ev) {
         ev.preventDefault();
         var content = editor.getValue();
-        var fileNameToSaveAs = $(".buffer-name").text();
+        var fileNameToSaveAs = getBufferName();
 
         var dataUrl = "data:text/plain;base64," + btoa(content);
         Dropbox.save(dataUrl, fileNameToSaveAs);
@@ -236,7 +244,7 @@ var trymosml = function(){
         function success (files) {
             var file = files[0];
             $.get(file.link, function(content) {
-                $(".buffer-name").text(file.name);
+                setBufferName(file.name);
                 editor.setValue(content);
                 editor.focus();
             });
