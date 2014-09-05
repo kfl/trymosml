@@ -117,7 +117,7 @@ var trymosml = function(){
     function initialiseToplevel() {
         var getAndUseDecl = ["fun ",getAndUseName," filename len = ", 
                              "let val f = TextIO.openOut filename ",
-//                             '    val _ = print ("Getting ready for "^Int.toString len^" chars for "^filename^"\\n") '+
+//                             '    val _ = print ("Getting ready for "^Int.toString len^" chars for "^filename^"\\n") ',
                              "    val content = TextIO.inputN(TextIO.stdIn, len) ",
                              "in  TextIO.output(f, content) ",
                              "  ; TextIO.closeOut f ",
@@ -132,7 +132,8 @@ var trymosml = function(){
         var content = editor.getValue();
         var fname = $(".buffer-name").text();
         wsSendCommand(getAndUseName+ ' "'+fname+'" ' + content.length + ';'); // FIXME deal with multibyte chars
-        wsSendCommand(content);
+        setTimeout(function (){ wsSendCommand(content); }, 10); // Ugly hack to make sure that the getAndUse 
+                                                                // function is sent and started.
     };
 
     function resetConsole () {
