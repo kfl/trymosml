@@ -1,0 +1,6 @@
+{
+    "Addr": ":8080",
+    "Rootdir": "./web",
+    "Command": "mosml",
+    "CommandArgs": ["-P", "full"]
+}

@@ -29,3 +29,20 @@ command:
 ~~~
 $ go build
 ~~~
+
+
+How to configure the webshell
+-----------------------------
+
+The `webshell` binary reads its configuration from a JSON file, which
+can be specified with the `-conf` command-line argumend.  The file
+should have the following form:
+
+~~~.js
+{
+    "Addr": ":8080",
+    "Rootdir": "./web",
+    "Command": "mosml",
+    "CommandArgs": ["-P", "full"]
+}
+~~~

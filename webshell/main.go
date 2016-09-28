@@ -3,11 +3,13 @@ package main
 import (
 	"flag"
 	"log"
-	"net/http"
+	"net/http"	
+	"io/ioutil"
+	"encoding/json"
 )
 
-var addr = flag.String("addr", ":8080", "http service address")
-var rootdir = flag.String("rootdir", "./web", "static root dir")
+//var addr = flag.String("addr", ":8080", "http service address")
+//var rootdir = flag.String("rootdir", "./web", "static root dir")
 
 
 func loggingHandler(h http.Handler) http.Handler {
@@ -17,18 +19,45 @@ func loggingHandler(h http.Handler) http.Handler {
 	})
 }
 
+type Configuration struct {
+	Addr string
+	Rootdir string
+	Command string
+	CommandArgs []string
+}
+
+var conf = flag.String("conf", "conf.json", "JSON configuration file")
+
+func readConfig(filename string) Configuration {
+	file, err := ioutil.ReadFile(filename)
+	if err != nil {
+		log.Fatal("Config File Missing. ", err)
+	}
+
+	var config Configuration
+	err = json.Unmarshal(file, &config)
+	if err != nil {
+		log.Fatal("Config Parse Error: ", err)
+	}
+	
+	return config
+}
+
+
 
 func main() {
 	flag.Parse()
-	cmd := flag.Arg(0)
-	cmdArgs := flag.Args()[1:]
+
+	config := readConfig(*conf)
+	cmd := config.Command
+	cmdArgs := config.CommandArgs
 	reg := newRegistry()
 	go reg.run()
 
-	log.Printf("Starting http server at: %s", *addr)
+	log.Printf("Starting http server at: %s", config.Addr)
 	
     // Normal resources
-    http.Handle("/", loggingHandler(http.FileServer(http.Dir(*rootdir))))
+    http.Handle("/", loggingHandler(http.FileServer(http.Dir(config.Rootdir))))
 
 	
 	http.HandleFunc("/webshell", func(w http.ResponseWriter, r *http.Request) {
@@ -36,6 +65,6 @@ func main() {
 		serveClient(reg, cmd, cmdArgs, w, r)
 	})
 
-	log.Fatalf("ListenAndServe: %v", http.ListenAndServe(*addr, nil))
+	log.Fatalf("ListenAndServe: %v", http.ListenAndServe(config.Addr, nil))
 	
 }
