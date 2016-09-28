@@ -71,7 +71,7 @@ var trymosml = function(){
         var re = new RegExp('^(http)(s)?://([^/]*)(/.*)$');
         var match = location.href.match(re);
         if (match) {
-            var wsUrl = 'ws' + (match[2] || '') + '://' + match[3] + match[4];
+            var wsUrl = 'ws' + (match[2] || '') + '://' + match[3] + match[4] + "webshell";
             return wsUrl;
         } else {
             return 'ws://try.mosml.org';
@@ -83,7 +83,7 @@ var trymosml = function(){
 	    try {
 		    ws = new WebSocket(url);
 	    } catch (ex) {
-		    consoleError('Cannot connect: ' + ex);
+		    consoleError('Cannot connect to: ' + url + ' got the error '+ex);
 		    ws = null;
 		    return;
 	    }
