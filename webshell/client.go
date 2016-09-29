@@ -73,7 +73,7 @@ func (c *Client) writePump() {
 				if err != io.EOF {
 					log.Printf("Writepump Unexpected error while reading STDOUT from process: %s", err)
 				} else {
-					log.Printf("Writepump Process STDOUT closed")
+					log.Printf("Writepump Process STDOUT closed: %s", err)
 				}
 				break
 			}

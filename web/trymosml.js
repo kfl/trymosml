@@ -74,7 +74,7 @@ var trymosml = function(){
             var wsUrl = 'ws' + (match[2] || '') + '://' + match[3] + match[4] + "webshell";
             return wsUrl;
         } else {
-            return 'ws://try.mosml.org';
+            return 'ws://try.mosml.org/webshell';
         }
     }
 

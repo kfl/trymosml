@@ -15,6 +15,7 @@ type Toplevel struct {
 }
 
 func startToplevel(commandName string, commandArgs []string, env []string) (*Toplevel, error) {
+	log.Printf("Starting %s %v", commandName, commandArgs)
 	cmd := exec.Command(commandName, commandArgs...)
 	cmd.Env = env
 
