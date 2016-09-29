@@ -55,7 +55,7 @@ func (c *Client) writePump() {
 	buf := make([]byte, 4*1024)
 	for {
 		n, err := c.top.stdout.Read(buf)
-		//		log.Printf("Read %s", buf[:n])
+//		log.Printf("Read %s", buf[:n])
 		if n > 0 {
 			w, err := c.conn.NextWriter(websocket.TextMessage)
 			if err != nil {

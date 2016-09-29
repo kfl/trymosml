@@ -44,21 +44,23 @@ func startToplevel(commandName string, commandArgs []string, env []string) (*Top
 }
 
 func (top *Toplevel) terminate() {
-	log.Println("Terminating toplevel")
-	top.stdin.Close()
+	if ! top.cmd.ProcessState.Exited() {
+		log.Println("Terminating toplevel")
+		top.stdin.Close()
 
-	err := top.cmd.Process.Signal(syscall.SIGINT)
-	if err != nil {
-		log.Printf("Toplevel: Failed to Interrupt process %v: %s, attempting to kill", top.cmd.Process.Pid, err)
-		err = top.cmd.Process.Kill()
+		err := top.cmd.Process.Signal(syscall.SIGINT)
 		if err != nil {
-			log.Printf("Toplevel: Failed to Kill process %v: %s", top.cmd.Process.Pid, err)
+			log.Printf("Toplevel: Failed to Interrupt process %v: %s, attempting to kill", top.cmd.Process.Pid, err)
+			err = top.cmd.Process.Kill()
+			if err != nil {
+				log.Printf("Toplevel: Failed to Kill process %v: %s", top.cmd.Process.Pid, err)
+			}
 		}
-	}
 
-	err = top.cmd.Wait()
-	if err != nil {
-		log.Printf("Toplevel: Failed to reap process %v: %s", top.cmd.Process.Pid, err)
+		err = top.cmd.Wait()
+		if err != nil {
+			log.Printf("Toplevel: Failed to reap process %v: %s", top.cmd.Process.Pid, err)
+		}
 	}
 }
 
