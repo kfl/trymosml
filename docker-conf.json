@@ -1,0 +1,6 @@
+{
+    "Addr": ":80",
+    "Rootdir": "./web",
+    "Command": "/usr/bin/docker",
+    "CommandArgs": ["run", "-i", "--rm", "--memory=\"10m\"", "--net=\"none\"", "-h", "mosmlserver", "kflarsen/trymosml"]
+}
