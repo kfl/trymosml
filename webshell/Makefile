@@ -4,7 +4,7 @@
 
 # To manually invoke the locally installed Go, use ./go
 
-webshell: go-workspace go
+webshell: go-workspace go $(wildcard *.go)
 	./go get -d
 	./go build
 
