@@ -57,7 +57,7 @@ func (c *Client) writePump() {
 		n, err := c.top.stdout.Read(buf)
 //		log.Printf("Read %s", buf[:n])
 		if n > 0 {
-			w, err := c.conn.NextWriter(websocket.TextMessage)
+			err := c.conn.WriteMessage(websocket.TextMessage, buf[:n])
 			if err != nil {
 				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway,
 					websocket.CloseNoStatusReceived) {
@@ -66,8 +66,6 @@ func (c *Client) writePump() {
 
 				break
 			}
-			w.Write(buf[:n])
-			w.Close()
 		} else {
 			if err != nil {
 				if err != io.EOF {
