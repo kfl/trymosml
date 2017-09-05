@@ -44,7 +44,7 @@ func startToplevel(commandName string, commandArgs []string, env []string) (*Top
 }
 
 func (top *Toplevel) terminate() {
-	if ! top.cmd.ProcessState.Exited() {
+	if top.cmd != nil && (top.cmd.ProcessState == nil || !top.cmd.ProcessState.Exited()) {
 		log.Println("Terminating toplevel")
 		top.stdin.Close()
 
