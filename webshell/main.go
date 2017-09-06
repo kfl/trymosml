@@ -54,9 +54,6 @@ func main() {
 	reg := newRegistry()
 	go reg.run()
 
-	log.Printf("Starting http server at: %s", config.Addr)
-
-
     mux := http.NewServeMux()
 	// Normal resources
 	mux.Handle("/", loggingHandler(http.FileServer(http.Dir(config.Rootdir))))
@@ -78,9 +75,13 @@ func main() {
 		Handler: mux,
 	}
 
+	// Start separate goroutine for HTTPS server
+	go func(){
+		log.Printf("Starting https server at: %s", s.Addr)
+		log.Fatalf("ListenAndServeTLS: %v", s.ListenAndServeTLS("", ""))
+	}
 
-	go log.Fatalf("ListenAndServeTLS: %v", s.ListenAndServeTLS("", ""))
-
+	log.Printf("Starting http server at: %s", config.Addr)
 	log.Fatalf("ListenAndServe: %v", http.ListenAndServe(config.Addr, mux))
 
 }
