@@ -79,7 +79,7 @@ func main() {
 	go func(){
 		log.Printf("Starting https server at: %s", s.Addr)
 		log.Fatalf("ListenAndServeTLS: %v", s.ListenAndServeTLS("", ""))
-	}
+	}()
 
 	log.Printf("Starting http server at: %s", config.Addr)
 	log.Fatalf("ListenAndServe: %v", http.ListenAndServe(config.Addr, mux))
