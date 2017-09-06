@@ -56,14 +56,18 @@ func main() {
 
 	log.Printf("Starting http server at: %s", config.Addr)
 
-	// Normal resources
-	http.Handle("/", loggingHandler(http.FileServer(http.Dir(config.Rootdir))))
 
-	http.HandleFunc("/webshell", func(w http.ResponseWriter, r *http.Request) {
+    mux := http.NewServeMux()
+	// Normal resources
+	mux.Handle("/", loggingHandler(http.FileServer(http.Dir(config.Rootdir))))
+
+	// websockets
+	mux.HandleFunc("/webshell", func(w http.ResponseWriter, r *http.Request) {
 		log.Println("DYNAMIC Starting webshell", "|", r.RemoteAddr, r.UserAgent())
 		serveClient(reg, cmd, cmdArgs, w, r)
 	})
 
+	// TLS via Let's Encrypt
 	m := autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
 		HostPolicy: autocert.HostWhitelist("try.mosml.org"),
@@ -71,11 +75,12 @@ func main() {
 	s := &http.Server{
 		Addr:      ":https",
 		TLSConfig: &tls.Config{GetCertificate: m.GetCertificate},
+		Handler: mux,
 	}
 
 
 	go log.Fatalf("ListenAndServeTLS: %v", s.ListenAndServeTLS("", ""))
 
-	log.Fatalf("ListenAndServe: %v", http.ListenAndServe(config.Addr, nil))
+	log.Fatalf("ListenAndServe: %v", http.ListenAndServe(config.Addr, mux))
 
 }
