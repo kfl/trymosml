@@ -9,7 +9,7 @@ webshell: go-workspace go $(wildcard *.go)
 	./go build
 
 # Go installation config.
-GO_VER=1.7.1
+GO_VER=1.9
 SYSTEM_NAME:=$(shell uname -s | tr '[:upper:]' '[:lower:]')
 SYSTEM_ARCH:=$(shell uname -m)
 GO_ARCH:=$(if $(filter x86_64, $(SYSTEM_ARCH)),amd64,386)
@@ -38,7 +38,7 @@ go-v$(GO_VERSION):
 	wget -O - $(GO_DOWNLOAD_URL) | tar xzf - --strip-components=1 -C $@
 
 
-# Clean up binaries, local Go workspace and local go installation 
+# Clean up binaries, local Go workspace and local go installation
 .PHONY: clean superclean
 
 clean:
@@ -46,4 +46,3 @@ clean:
 
 superclean: clean
 	rm -rf go go-v$(GO_VERSION)
-
