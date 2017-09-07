@@ -68,6 +68,8 @@ func main() {
 	m := autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
 		HostPolicy: autocert.HostWhitelist("try.mosml.org"),
+    	Email:      "ken@friislarsen.net",
+		Cache:      autocert.DirCache("golang-autocert"),
 	}
 	s := &http.Server{
 		Addr:      ":https",
