@@ -9,7 +9,7 @@ webshell: go-workspace go $(wildcard *.go)
 	./go build
 
 # Go installation config.
-GO_VER=1.9
+GO_VER=1.10.3
 SYSTEM_NAME:=$(shell uname -s | tr '[:upper:]' '[:lower:]')
 SYSTEM_ARCH:=$(shell uname -m)
 GO_ARCH:=$(if $(filter x86_64, $(SYSTEM_ARCH)),amd64,386)
