@@ -11,9 +11,6 @@ import (
 	"golang.org/x/crypto/acme/autocert"
 )
 
-//var addr = flag.String("addr", ":8080", "http service address")
-//var rootdir = flag.String("rootdir", "./web", "static root dir")
-
 func loggingHandler(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Println("STATIC", r.Method, r.URL.Path, "|", r.RemoteAddr, r.UserAgent())
@@ -54,7 +51,7 @@ func main() {
 	reg := newRegistry()
 	go reg.run()
 
-    mux := http.NewServeMux()
+	mux := http.NewServeMux()
 	// Normal resources
 	mux.Handle("/", loggingHandler(http.FileServer(http.Dir(config.Rootdir))))
 
@@ -65,25 +62,35 @@ func main() {
 	})
 
 	// TLS via Let's Encrypt
-	m := autocert.Manager{
+	m := &autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
 		HostPolicy: autocert.HostWhitelist("try.mosml.org"),
-    	Email:      "ken@friislarsen.net",
+		Email:      "ken@friislarsen.net",
 		Cache:      autocert.DirCache("golang-autocert"),
 	}
-	s := &http.Server{
+
+	// HTTPS server on port 443
+	httpsServer := &http.Server{
 		Addr:      ":https",
 		TLSConfig: &tls.Config{GetCertificate: m.GetCertificate},
-		Handler: mux,
+		Handler:   mux,
 	}
 
-	// Start separate goroutine for HTTPS server
-	go func(){
-		log.Printf("Starting https server at: %s", s.Addr)
-		log.Fatalf("ListenAndServeTLS: %v", s.ListenAndServeTLS("", ""))
+	// Start HTTPS server
+	go func() {
+		log.Printf("Starting https server at: %s", httpsServer.Addr)
+		log.Fatalf("ListenAndServeTLS: %v", httpsServer.ListenAndServeTLS("", ""))
 	}()
 
+	// HTTP server on port 80 for ACME challenges and redirect
+	// This is critical for Let's Encrypt to verify domain ownership
+	go func() {
+		log.Println("Starting http server on :80 for ACME challenges")
+		// m.HTTPHandler(nil) handles ACME challenges and redirects to HTTPS
+		log.Fatalf("ListenAndServe :80: %v", http.ListenAndServe(":80", m.HTTPHandler(nil)))
+	}()
+
+	// HTTP server on custom port (for backward compatibility)
 	log.Printf("Starting http server at: %s", config.Addr)
 	log.Fatalf("ListenAndServe: %v", http.ListenAndServe(config.Addr, mux))
-
 }
