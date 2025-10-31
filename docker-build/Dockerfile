@@ -11,7 +11,7 @@ RUN dpkg -i /mosmlfiles/mosml_2.10.1-0ubuntu2_amd64.deb
 # Try Moscow ML specific stuff
 
 RUN apt-get install -y adduser && \
-    adduser --uid 4242 --disabled-login --gecos "Moscos ML user" \
+    adduser --uid 4242 --disabled-login --gecos "Moscow ML user" \
     mosmluser
 
 WORKDIR /home/mosmluser
