@@ -28,6 +28,16 @@ func TestHelperProcess(t *testing.T) {
 				io.Copy(os.Stdout, os.Stdin)
 			case "stderr":
 				fmt.Fprint(os.Stderr, "compiler error\n")
+			case "busy", "slow-stop":
+				if os.Args[i+1] == "slow-stop" {
+					stop := make(chan os.Signal, 1)
+					signal.Notify(stop, syscall.SIGTERM)
+					go func() { <-stop; time.Sleep(200 * time.Millisecond); os.Exit(0) }()
+				}
+				fmt.Fprint(os.Stdout, "ready\n")
+				for {
+					time.Sleep(time.Second)
+				}
 			case "ignore-term":
 				signal.Ignore(syscall.SIGTERM)
 				fmt.Fprint(os.Stdout, "ready\n")
@@ -46,7 +56,7 @@ func testConfig(t *testing.T) Configuration {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return Configuration{Rootdir: t.TempDir(), Command: exe,
+	return Configuration{Command: exe,
 		CommandArgs:           []string{"-test.run=TestHelperProcess", "--", "--repl-helper", "echo"},
 		SessionTimeoutSeconds: 30, IdleTimeoutSeconds: 30, MaxSessions: 1, MaxMessageBytes: 1024}
 }
@@ -151,6 +161,97 @@ func TestSessionLimitsAndShutdown(t *testing.T) {
 			}
 			waitReleased(t, reg)
 		})
+	}
+}
+
+func checkResetAtCapacity(t *testing.T, cfg Configuration, ready string) {
+	t.Helper()
+	srv, _, _ := testServer(t, cfg)
+	conn := dial(t, srv)
+	readUntil(t, conn, ready)
+	if err := conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "reset"), time.Now().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	for {
+		if _, _, err := conn.ReadMessage(); err != nil {
+			if !websocket.IsCloseError(err, websocket.CloseNormalClosure) {
+				t.Fatalf("close handshake failed: %v", err)
+			}
+			break
+		}
+	}
+	// Match the browser: reconnect on close, without waiting for the registry.
+	next := dial(t, srv)
+	readUntil(t, next, ready)
+}
+
+func TestResetAtCapacity(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.CommandArgs[len(cfg.CommandArgs)-1] = "slow-stop"
+	checkResetAtCapacity(t, cfg, "ready")
+}
+
+func TestBusyInputKeepsWebSocketResponsive(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.CommandArgs[len(cfg.CommandArgs)-1] = "busy"
+	cfg.MaxMessageBytes = 1 << 20
+	srv, reg, _ := testServer(t, cfg)
+	conn := dial(t, srv)
+	readUntil(t, conn, "ready")
+	if err := conn.WriteMessage(websocket.TextMessage, []byte(strings.Repeat("x", 1<<20))); err != nil {
+		t.Fatal(err)
+	}
+	// The child never reads stdin. This message exceeds the pipe's capacity.
+	time.Sleep(100 * time.Millisecond)
+	pong := false
+	conn.SetPongHandler(func(string) error { pong = true; return nil })
+	conn.SetReadDeadline(time.Now().Add(3 * time.Second))
+	if err := conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if err := conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "reset"), time.Now().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err := conn.ReadMessage()
+	if !pong || !websocket.IsCloseError(err, websocket.CloseNormalClosure) {
+		t.Fatalf("busy input blocked ping or close: pong=%v, err=%v", pong, err)
+	}
+	waitReleased(t, reg)
+}
+
+func TestInputQueueOverflowClosesSession(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.CommandArgs[len(cfg.CommandArgs)-1] = "busy"
+	cfg.MaxMessageBytes = 1 << 20
+	srv, reg, _ := testServer(t, cfg)
+	conn := dial(t, srv)
+	readUntil(t, conn, "ready")
+	conn.SetWriteDeadline(time.Now().Add(3 * time.Second))
+	message := []byte(strings.Repeat("x", 1<<20))
+	for i := 0; i < 16; i++ {
+		if err := conn.WriteMessage(websocket.TextMessage, message); err != nil {
+			break
+		}
+	}
+	_, _, err := conn.ReadMessage()
+	closeErr, ok := err.(*websocket.CloseError)
+	if !ok || closeErr.Code != websocket.CloseNormalClosure || closeErr.Text != "REPL input buffer full" {
+		t.Fatalf("expected bounded input rejection, got %v", err)
+	}
+	waitReleased(t, reg)
+}
+
+func TestBackendDoesNotServeStaticFiles(t *testing.T) {
+	srv, _, _ := testServer(t, testConfig(t))
+	for _, path := range []string{"/", "/examples/scratchpad.sml"} {
+		response, err := http.Get(srv.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		response.Body.Close()
+		if response.StatusCode != http.StatusNotFound {
+			t.Fatalf("backend serves %s: %s", path, response.Status)
+		}
 	}
 }
 
@@ -291,6 +392,7 @@ func TestDockerREPL(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg.CommandArgs = nil
+	cfg.MaxMessageBytes = 1 << 20
 	srv, reg, _ := testServer(t, cfg)
 	conn := dial(t, srv)
 	readUntil(t, conn, "Enter")
@@ -298,7 +400,19 @@ func TestDockerREPL(t *testing.T) {
 	readUntil(t, conn, "val it = 3")
 	conn.WriteMessage(websocket.TextMessage, []byte("val f = TextIO.openOut \"scratchpad.sml\"; TextIO.output(f, \"val answer = 42;\"); TextIO.closeOut f; use \"scratchpad.sml\";\n"))
 	readUntil(t, conn, "val answer = 42")
+	// The unchanged compiler's dynamic GMP extension must work on the new base.
+	conn.WriteMessage(websocket.TextMessage, []byte("load \"IntInf\"; val big = valOf (IntInf.fromString \"12345678901234567890\"); IntInf.toString (IntInf.* (big,big));\n"))
+	readUntil(t, conn, "152415787532388367501905199875019052100")
 	conn.WriteMessage(websocket.TextMessage, []byte("fun loop () = loop (); loop ();\n"))
+	readUntil(t, conn, "loop = fn")
+	// Fill Docker's forwarding buffers while the interpreter is busy, then
+	// disconnect abruptly. Cleanup must not depend on stdin becoming writable.
+	conn.SetWriteDeadline(time.Now().Add(3 * time.Second))
+	for i := 0; i < 4; i++ {
+		if err := conn.WriteMessage(websocket.TextMessage, []byte(strings.Repeat("x", 1<<20))); err != nil {
+			t.Fatal(err)
+		}
+	}
 	conn.Close()
 	waitReleased(t, reg)
 	// The launcher must remove a container even while its interpreter is busy.
@@ -306,4 +420,22 @@ func TestDockerREPL(t *testing.T) {
 	if err != nil || strings.TrimSpace(string(out)) != "" {
 		t.Fatalf("leaked containers: %s (%v)", out, err)
 	}
+}
+
+func TestDockerResetAtCapacity(t *testing.T) {
+	if os.Getenv("TRYMOSML_DOCKER_TEST") != "1" {
+		t.Skip("set TRYMOSML_DOCKER_TEST=1 with the saved REPL image loaded")
+	}
+	docker, err := exec.LookPath("docker")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("TRYMOSML_DOCKER", docker)
+	cfg := testConfig(t)
+	cfg.Command, err = filepath.Abs("../deploy/repl.py")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.CommandArgs = nil
+	checkResetAtCapacity(t, cfg, "Enter")
 }

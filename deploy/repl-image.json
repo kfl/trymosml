@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "platform": "linux/amd64",
+  "image": "trymosml/repl:trixie-20261112-r1",
+  "archive": "repl-trixie-20261112-r1.tar.gz",
+  "archive_sha256": "2c0e367af02441454e2a003491de2b299f23464b32f8002cdf54a6daa3afe53f",
+  "config_sha256": "66c8934bc6bc0cb7ff72a2f106164d8dc72b1a6fc7ee1c46d17592983df9f867",
+  "layers": [
+    "sha256:dd57f90311a2567b55ff22eeacff1602fd04ad7566e315957731359eab173b90",
+    "sha256:ab0a678f6268ea042b2c0038e4297a948f0c01ef0216f96aec51419642bd0db5",
+    "sha256:3c93c7924287b967912825c6858c0d2119bf666b1e60e85d508a4741ce11cd13",
+    "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef"
+  ],
+  "config": {
+    "Env": [
+      "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    ],
+    "WorkingDir": "/home/mosmluser",
+    "Entrypoint": [
+      "/usr/bin/mosml",
+      "-P",
+      "full",
+      "-liberal"
+    ],
+    "Cmd": null,
+    "User": "4242:4242",
+    "Labels": null
+  },
+  "dockerfile_sha256": "4b5b336980f0b845176748c815d4a9a12eb08697ca6d76693802fa8dc8f5759c",
+  "mosml_package_sha256": "beb14c20b1ba8e888df908a56b6c03be4e18012b98f8a0c479f92d1fd1224913"
+}

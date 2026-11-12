@@ -7,8 +7,10 @@ import sys
 import time
 import uuid
 
+from repl_image import read_manifest, verify_local_image
+
 LABEL = "org.trymosml.managed=true"
-IMAGE = os.environ.get("TRYMOSML_REPL_IMAGE", "trymosml/repl:legacy-20160924")
+IMAGE = os.environ.get("TRYMOSML_REPL_IMAGE") or read_manifest()["image"]
 DOCKER = os.environ.get("TRYMOSML_DOCKER", "/usr/bin/docker")
 
 
@@ -73,8 +75,11 @@ if __name__ == "__main__":
     try:
         if sys.argv[1:] == ["--cleanup"]:
             cleanup_all()
+        elif sys.argv[1:] == ["--check-image"]:
+            verify_local_image(IMAGE, DOCKER, read_manifest())
+            print("Verified REPL image: " + IMAGE)
         elif sys.argv[1:]:
-            raise ValueError("usage: repl.py [--cleanup]")
+            raise ValueError("usage: repl.py [--cleanup | --check-image]")
         else:
             sys.exit(run())
     except (OSError, ValueError, subprocess.SubprocessError) as error:

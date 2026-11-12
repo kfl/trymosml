@@ -28,8 +28,11 @@ func (r *Registry) release() {
 	r.mu.Lock()
 	r.active--
 	r.mu.Unlock()
-	r.wg.Done()
 }
+
+// Capacity is released before the close acknowledgement; shutdown must still
+// wait for the handler's remaining socket and goroutine cleanup.
+func (r *Registry) done() { r.wg.Done() }
 
 func (r *Registry) stop() {
 	r.mu.Lock()

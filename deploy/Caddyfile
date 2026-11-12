@@ -1,4 +1,13 @@
 try.mosml.org {
-	reverse_proxy 127.0.0.1:8080
+	@backend path /webshell /healthz
+	handle @backend {
+		reverse_proxy 127.0.0.1:8080
+	}
+	handle {
+		root * /opt/trymosml/web
+		@sml path *.sml
+		header @sml Content-Type "text/plain; charset=utf-8"
+		file_server
+	}
 	log
 }

@@ -80,6 +80,7 @@ var trymosml = function(){
 
     function connectWebsocket () {
         var url = webSocketUrl();
+        $(".run-code").prop('disabled', true);
 	    try {
 		    ws = new WebSocket(url);
 	    } catch (ex) {
@@ -89,20 +90,37 @@ var trymosml = function(){
 	    }
 
         var everConnected = false;
+        var ready = false;
+        var startupOutput = '';
+        var readyMarker = '__trymosml_ready_' + Date.now() + '_' +
+            Math.random().toString(36).slice(2) + '__';
 
 	    ws.onopen = function(ev) {
             everConnected = true;
-            $(".run-code").prop('disabled', false);
 		    consoleInfo('Connected to Moscow ML server');
-            initialiseToplevel();
+            initialiseToplevel(readyMarker);
 	    };
 	    ws.onclose = function(ev) {
+		if (!ready && startupOutput) consoleWrite(startupOutput);
 		consoleInfo(ev.reason || 'Connection closed to Moscow ML server');
             $(".run-code").prop('disabled', true);
 		    ws = null;
 	    };
 	    ws.onmessage = function(ev) {
-		    consoleWrite(ev.data);
+            if (!ready) {
+                // A WebSocket can open before Docker or the REPL is ready.
+                // Accumulate output because the marker can span frames.
+                startupOutput += ev.data;
+                var markerAt = startupOutput.indexOf(readyMarker);
+                if (markerAt < 0) return;
+                ready = true;
+                $(".run-code").prop('disabled', false);
+                consoleWrite(startupOutput.slice(0, markerAt) +
+                    startupOutput.slice(markerAt + readyMarker.length));
+                startupOutput = '';
+            } else {
+                consoleWrite(ev.data);
+            }
 	    };
 	    ws.onerror = function(ev) {
 		    consoleError('Connection error');
@@ -114,11 +132,9 @@ var trymosml = function(){
 
     var getAndUseName = "getAndUse";
 
-    function initialiseToplevel() {
-        var getAndUseDecl = ["fun ",getAndUseName," filename len = ", 
+    function initialiseToplevel(readyMarker) {
+        var getAndUseDecl = ["fun ",getAndUseName," filename content = ",
                              "let val f = TextIO.openOut filename ",
-//                             '    val _ = print ("Getting ready for "^Int.toString len^" chars for "^filename^"\\n") ',
-                             "    val content = TextIO.inputN(TextIO.stdIn, len) ",
                              "in  TextIO.output(f, content) ",
                              "  ; TextIO.closeOut f ",
                              "  ; use filename ",
@@ -126,6 +142,7 @@ var trymosml = function(){
         wsSendCommand("Meta.quietdec := true;");
         wsSendCommand(getAndUseDecl);
         wsSendCommand("Meta.quietdec := false;");
+        wsSendCommand('print "' + readyMarker + '";\n');
     }
 
     function getBufferName() {
@@ -139,10 +156,20 @@ var trymosml = function(){
     function sendEditorContent() {
         var content = editor.getValue();
         var fname = getBufferName();
-        wsSendCommand(getAndUseName+ ' "'+fname+'" ' + content.length + ';'); // FIXME deal with multibyte chars
-        setTimeout(function (){ wsSendCommand(content); }, 10); // Ugly hack to make sure that the getAndUse 
-                                                                // function is sent and started.
+        wsSendCommand(getAndUseName + ' ' + smlString(fname) + ' ' +
+            smlString(content) + ';\n');
     };
+
+    // Moscow ML strings contain bytes. Quote UTF-8 with SML's three-digit
+    // decimal escapes, so filenames and source travel in one complete command.
+    function smlString(value) {
+        return '"' + Array.from(new TextEncoder().encode(value), function (byte) {
+            if (byte >= 32 && byte <= 126 && byte !== 34 && byte !== 92) {
+                return String.fromCharCode(byte);
+            }
+            return '\\' + ('000' + byte).slice(-3);
+        }).join('') + '"';
+    }
 
     function resetConsole () {
         if (ws) {
@@ -226,7 +253,7 @@ var trymosml = function(){
             setBufferName(file);
             editor.setValue(content);
             editor.focus();
-        });
+        }, "text");
         return false;
     }
 

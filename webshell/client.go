@@ -18,7 +18,9 @@ func serveClient(ctx context.Context, reg *Registry, config Configuration, w htt
 		http.Error(w, "All REPL sessions are busy; please try again shortly.", http.StatusServiceUnavailable)
 		return
 	}
-	defer reg.release()
+	defer reg.done()
+	release := sync.OnceFunc(reg.release)
+	defer release()
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return
@@ -27,6 +29,7 @@ func serveClient(ctx context.Context, reg *Registry, config Configuration, w htt
 	top, err := startToplevel(config.Command, config.CommandArgs)
 	if err != nil {
 		log.Printf("Starting REPL: %v", err)
+		release()
 		conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "Could not start REPL"), time.Now().Add(time.Second))
 		return
 	}
@@ -35,13 +38,20 @@ func serveClient(ctx context.Context, reg *Registry, config Configuration, w htt
 	conn.SetReadLimit(config.MaxMessageBytes)
 	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 	conn.SetPongHandler(func(string) error { return conn.SetReadDeadline(time.Now().Add(60 * time.Second)) })
-	finished := make(chan struct{}, 2)
+	// Acknowledge a browser's close only after its process and slot are gone.
+	// Reset reconnects as soon as the browser receives that acknowledgement.
+	conn.SetCloseHandler(func(int, string) error { return nil })
+	finished := make(chan string, 3)
 	activity := make(chan struct{}, 1)
+	input := make(chan []byte, 8)
+	stopping := make(chan struct{})
 	var pumps sync.WaitGroup
-	pumps.Add(2)
+	pumps.Add(3)
 	go func() {
 		defer pumps.Done()
-		defer func() { finished <- struct{}{} }()
+		defer close(input)
+		reason := "REPL session ended"
+		defer func() { finished <- reason }()
 		for {
 			kind, message, err := conn.ReadMessage()
 			if err != nil {
@@ -54,14 +64,38 @@ func serveClient(ctx context.Context, reg *Registry, config Configuration, w htt
 			case activity <- struct{}{}:
 			default:
 			}
-			if _, err := top.stdin.Write(message); err != nil {
+			// Never block the WebSocket reader on a busy interpreter: it must
+			// keep processing close frames, pongs and the read deadline.
+			select {
+			case <-stopping:
+				return
+			case input <- message:
+			default:
+				reason = "REPL input buffer full"
 				return
 			}
 		}
 	}()
 	go func() {
 		defer pumps.Done()
-		defer func() { finished <- struct{}{} }()
+		defer func() { finished <- "REPL session ended" }()
+		for {
+			select {
+			case <-stopping:
+				return
+			case message, ok := <-input:
+				if !ok {
+					return
+				}
+				if _, err := top.stdin.Write(message); err != nil {
+					return
+				}
+			}
+		}
+	}()
+	go func() {
+		defer pumps.Done()
+		defer func() { finished <- "REPL session ended" }()
 		buf := make([]byte, 4096)
 		for {
 			n, err := top.stdout.Read(buf)
@@ -92,7 +126,7 @@ session:
 		case <-ctx.Done():
 			reason = "Server restarting"
 			break session
-		case <-finished:
+		case reason = <-finished:
 			break session
 		case <-timeout.C:
 			reason = "Session time limit reached"
@@ -108,8 +142,10 @@ session:
 			}
 		}
 	}
+	close(stopping)
+	top.terminate()
+	release()
 	conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, reason), time.Now().Add(time.Second))
 	conn.Close()
-	top.terminate()
 	pumps.Wait()
 }

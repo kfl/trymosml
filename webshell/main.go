@@ -16,7 +16,6 @@ import (
 
 type Configuration struct {
 	Addr                  string
-	Rootdir               string
 	Command               string
 	CommandArgs           []string
 	SessionTimeoutSeconds int
@@ -27,7 +26,7 @@ type Configuration struct {
 
 func readConfig(filename string) (Configuration, error) {
 	config := Configuration{
-		Addr: "127.0.0.1:8080", Rootdir: "./web",
+		Addr:                  "127.0.0.1:8080",
 		SessionTimeoutSeconds: 1800, IdleTimeoutSeconds: 600,
 		MaxSessions: 4, MaxMessageBytes: 1 << 20,
 	}
@@ -38,17 +37,16 @@ func readConfig(filename string) (Configuration, error) {
 	if err := json.Unmarshal(data, &config); err != nil {
 		return config, err
 	}
-	if config.Command == "" || config.Addr == "" || config.Rootdir == "" ||
+	if config.Command == "" || config.Addr == "" ||
 		config.SessionTimeoutSeconds <= 0 || config.IdleTimeoutSeconds <= 0 ||
 		config.MaxSessions <= 0 || config.MaxMessageBytes <= 0 {
-		return config, fmt.Errorf("command, address, root directory and positive session limits are required")
+		return config, fmt.Errorf("command, address and positive session limits are required")
 	}
 	return config, nil
 }
 
 func newHandler(ctx context.Context, config Configuration, reg *Registry) http.Handler {
 	mux := http.NewServeMux()
-	mux.Handle("/", http.FileServer(http.Dir(config.Rootdir)))
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		fmt.Fprintln(w, "ok")
