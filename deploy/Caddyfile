@@ -1,4 +1,4 @@
-try.mosml.org {
+{$TRYMOSML_SITE:try.mosml.org} {
 	@backend path /webshell /healthz
 	handle @backend {
 		reverse_proxy 127.0.0.1:8080

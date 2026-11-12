@@ -7,6 +7,9 @@ which launches one Docker REPL per WebSocket connection. The page and examples
 remain available while Go restarts. Both services run under systemd; logs go
 to the journal. Caddy follows the active release symlink on updates and rollback.
 
+`deploy/Caddyfile` defaults to `try.mosml.org`. Local development uses the same
+file with `TRYMOSML_SITE=http://:80` to serve HTTP inside the development container.
+
 The REPL image uses Debian 13 (`trixie-slim`), with the base pinned by digest in
 docker-build/Dockerfile. The build verifies the repository's Moscow ML package,
 applies available Debian package updates, and installs Moscow ML 2.10.1 for amd64.
