@@ -1,0 +1,33 @@
+[Unit]
+Description=Try Moscow ML WebSocket server
+Requires=docker.service
+After=docker.service network.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=trymosml
+Group=trymosml
+SupplementaryGroups=docker
+WorkingDirectory=/opt/trymosml
+EnvironmentFile=-/etc/trymosml/environment
+ExecStartPre=/opt/trymosml/deploy/repl.py --cleanup
+ExecStart=/opt/trymosml/webshell/webshell -conf /etc/trymosml/webshell.json
+ExecStopPost=/opt/trymosml/deploy/repl.py --cleanup
+Restart=on-failure
+RestartSec=3
+TimeoutStartSec=60
+TimeoutStopSec=60
+KillMode=mixed
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+RestrictSUIDSGID=true
+UMask=0077
+MemoryMax=128M
+TasksMax=128
+
+[Install]
+WantedBy=multi-user.target

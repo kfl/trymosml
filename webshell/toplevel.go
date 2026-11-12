@@ -3,67 +3,69 @@ package main
 import (
 	"io"
 	"log"
+	"os"
 	"os/exec"
+	"sync"
 	"syscall"
+	"time"
 )
 
 type Toplevel struct {
-	cmd    *exec.Cmd
-	stdin  io.WriteCloser
-	stdout io.ReadCloser
-	stderr io.ReadCloser
+	cmd      *exec.Cmd
+	stdin    io.WriteCloser
+	stdout   io.ReadCloser
+	done     chan struct{}
+	stopOnce sync.Once
 }
 
-func startToplevel(commandName string, commandArgs []string, env []string) (*Toplevel, error) {
-	log.Printf("Starting %s %v", commandName, commandArgs)
+func startToplevel(commandName string, commandArgs []string) (*Toplevel, error) {
 	cmd := exec.Command(commandName, commandArgs...)
-	cmd.Env = env
-
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, err
-	}
-
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return nil, err
-	}
-
+	// A process group permits bounded cleanup of local command descendants.
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, err
 	}
-
-	err = cmd.Start()
+	reader, writer, err := os.Pipe()
 	if err != nil {
-		log.Printf("Could not start command %s: %s", commandName, err)
+		stdin.Close()
 		return nil, err
 	}
-
-	return &Toplevel{cmd, stdin, stdout, stderr}, err
+	// Drain stderr too; compiler errors must not fill an unread pipe.
+	cmd.Stdout, cmd.Stderr = writer, writer
+	if err := cmd.Start(); err != nil {
+		stdin.Close()
+		reader.Close()
+		writer.Close()
+		return nil, err
+	}
+	writer.Close()
+	top := &Toplevel{cmd: cmd, stdin: stdin, stdout: reader, done: make(chan struct{})}
+	go func() {
+		if err := cmd.Wait(); err != nil {
+			log.Printf("REPL process exited: %v", err)
+		}
+		close(top.done)
+	}()
+	return top, nil
 }
 
 func (top *Toplevel) terminate() {
-	if top.cmd != nil && (top.cmd.ProcessState == nil || !top.cmd.ProcessState.Exited()) {
-		log.Println("Terminating toplevel")
+	top.stopOnce.Do(func() {
+		// The production launcher traps TERM and explicitly removes its container.
+		select {
+		case <-top.done:
+		default:
+			top.cmd.Process.Signal(syscall.SIGTERM)
+		}
 		top.stdin.Close()
-
-		err := top.cmd.Process.Signal(syscall.SIGINT)
-		if err != nil {
-			log.Printf("Toplevel: Failed to Interrupt process %v: %s, attempting to kill", top.cmd.Process.Pid, err)
-			err = top.cmd.Process.Kill()
-			if err != nil {
-				log.Printf("Toplevel: Failed to Kill process %v: %s", top.cmd.Process.Pid, err)
-			}
+		select {
+		case <-top.done:
+		case <-time.After(8 * time.Second):
+			log.Printf("Force-stopping REPL process group %d", top.cmd.Process.Pid)
+			syscall.Kill(-top.cmd.Process.Pid, syscall.SIGKILL)
+			<-top.done
 		}
-
-		err = top.cmd.Wait()
-		if err != nil {
-			log.Printf("Toplevel: Failed to reap process %v: %s", top.cmd.Process.Pid, err)
-		}
-	}
-}
-
-func (top *Toplevel) interrupt() {
-	top.cmd.Process.Signal(syscall.SIGINT)
+		top.stdout.Close()
+	})
 }

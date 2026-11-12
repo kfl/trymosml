@@ -3,6 +3,11 @@ Webshell
 
 Custom webservice for Try Moscow ML.
 
+Production deployment uses Caddy for HTTPS and systemd for service management.
+See [deployment instructions](../deploy/README.md) for installation, session
+limits, testing, backups, and rollback. The Go server now serves plain HTTP only
+and should bind to localhost behind Caddy.
+
 Written in Go, the structure of the code is:
 
 * `main.go` sets up an HTTP server that serves static content from a
@@ -40,7 +45,7 @@ should have the following form:
 
 ~~~.js
 {
-    "Addr": ":8080",
+    "Addr": "127.0.0.1:8080",
     "Rootdir": "./web",
     "Command": "mosml",
     "CommandArgs": ["-P", "full"]

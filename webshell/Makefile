@@ -9,7 +9,7 @@ webshell: go-workspace go $(wildcard *.go) go.mod
 	./go build
 
 # Go installation config.
-GO_VER=1.25.3
+GO_VER=1.27.4
 SYSTEM_NAME:=$(shell uname -s | tr '[:upper:]' '[:lower:]')
 SYSTEM_ARCH:=$(shell uname -m)
 # Map system architecture to Go architecture

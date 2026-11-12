@@ -1,95 +1,115 @@
 package main
 
 import (
+	"context"
 	"io"
 	"log"
 	"net/http"
+	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
 
+var upgrader = websocket.Upgrader{ReadBufferSize: 1024, WriteBufferSize: 1024}
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-}
-
-// Client is an middleman between the websocket connection and a toplevel.
-type Client struct {
-	top *Toplevel
-
-	reg *Registry
-
-	// The websocket connection.
-	conn *websocket.Conn
-}
-
-// readPump pumps messages from the websocket connection to the toplevel.
-func (c *Client) readPump() {
-	defer func() {
-		c.reg.unregister <- c
-		c.conn.Close()
-		c.top.terminate()
-	}()
-
-	for {
-		_, message, err := c.conn.ReadMessage()
-		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway,
-				websocket.CloseNoStatusReceived) {
-				log.Printf("readPump error: %v", err)
-			}
-			break
-		}
-		c.top.stdin.Write(message)
-	}
-}
-
-// writePump pumps messages from the toplevel to the websocket connection.
-func (c *Client) writePump() {
-	defer func() {
-		c.conn.Close()
-		c.top.terminate()
-	}()
-
-	buf := make([]byte, 4*1024)
-	for {
-		n, err := c.top.stdout.Read(buf)
-//		log.Printf("Read %s", buf[:n])
-		if n > 0 {
-			err := c.conn.WriteMessage(websocket.TextMessage, buf[:n])
-			if err != nil {
-				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway,
-					websocket.CloseNoStatusReceived) {
-					log.Printf("Writepump websocket error: %s", err)
-				}
-
-				break
-			}
-		} else {
-			if err != nil {
-				if err != io.EOF {
-					log.Printf("Writepump Unexpected error while reading STDOUT from process: %s", err)
-				} else {
-					log.Printf("Writepump Process STDOUT closed: %s", err)
-				}
-				break
-			}
-		}
-	}
-}
-
-// serveClient handles websocket requests from a client.
-func serveClient(reg *Registry, cmd string, cmdArgs []string, w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Println(err)
+func serveClient(ctx context.Context, reg *Registry, config Configuration, w http.ResponseWriter, r *http.Request) {
+	if !reg.acquire() {
+		http.Error(w, "All REPL sessions are busy; please try again shortly.", http.StatusServiceUnavailable)
 		return
 	}
-	top, err := startToplevel(cmd, cmdArgs, nil)
-
-	client := &Client{reg: reg, top: top, conn: conn}
-	client.reg.register <- client
-	go client.writePump()
-	client.readPump()
+	defer reg.release()
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return
+	}
+	defer conn.Close()
+	top, err := startToplevel(config.Command, config.CommandArgs)
+	if err != nil {
+		log.Printf("Starting REPL: %v", err)
+		conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "Could not start REPL"), time.Now().Add(time.Second))
+		return
+	}
+	log.Printf("REPL session started")
+	defer log.Printf("REPL session finished")
+	conn.SetReadLimit(config.MaxMessageBytes)
+	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+	conn.SetPongHandler(func(string) error { return conn.SetReadDeadline(time.Now().Add(60 * time.Second)) })
+	finished := make(chan struct{}, 2)
+	activity := make(chan struct{}, 1)
+	var pumps sync.WaitGroup
+	pumps.Add(2)
+	go func() {
+		defer pumps.Done()
+		defer func() { finished <- struct{}{} }()
+		for {
+			kind, message, err := conn.ReadMessage()
+			if err != nil {
+				return
+			}
+			if kind != websocket.TextMessage {
+				return
+			}
+			select {
+			case activity <- struct{}{}:
+			default:
+			}
+			if _, err := top.stdin.Write(message); err != nil {
+				return
+			}
+		}
+	}()
+	go func() {
+		defer pumps.Done()
+		defer func() { finished <- struct{}{} }()
+		buf := make([]byte, 4096)
+		for {
+			n, err := top.stdout.Read(buf)
+			if n > 0 {
+				conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+				if writeErr := conn.WriteMessage(websocket.TextMessage, buf[:n]); writeErr != nil {
+					return
+				}
+			}
+			if err != nil {
+				if err != io.EOF {
+					log.Printf("REPL output: %v", err)
+				}
+				return
+			}
+		}
+	}()
+	timeout := time.NewTimer(time.Duration(config.SessionTimeoutSeconds) * time.Second)
+	idle := time.NewTimer(time.Duration(config.IdleTimeoutSeconds) * time.Second)
+	ping := time.NewTicker(20 * time.Second)
+	defer timeout.Stop()
+	defer idle.Stop()
+	defer ping.Stop()
+	reason := "REPL session ended"
+session:
+	for {
+		select {
+		case <-ctx.Done():
+			reason = "Server restarting"
+			break session
+		case <-finished:
+			break session
+		case <-timeout.C:
+			reason = "Session time limit reached"
+			break session
+		case <-idle.C:
+			reason = "Session idle time limit reached"
+			break session
+		case <-activity:
+			idle.Reset(time.Duration(config.IdleTimeoutSeconds) * time.Second)
+		case <-ping.C:
+			if err := conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(5*time.Second)); err != nil {
+				break session
+			}
+		}
+	}
+	conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, reason), time.Now().Add(time.Second))
+	conn.Close()
+	top.terminate()
+	pumps.Wait()
 }

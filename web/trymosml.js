@@ -97,7 +97,7 @@ var trymosml = function(){
             initialiseToplevel();
 	    };
 	    ws.onclose = function(ev) {
-		    consoleInfo('Connection closed to Moscow ML server');
+		consoleInfo(ev.reason || 'Connection closed to Moscow ML server');
             $(".run-code").prop('disabled', true);
 		    ws = null;
 	    };
@@ -147,8 +147,8 @@ var trymosml = function(){
     function resetConsole () {
         if (ws) {
             var oldClose = ws.onclose;
-            ws.onclose = function () {
-                if(oldClose) oldClose();
+            ws.onclose = function (ev) {
+                if(oldClose) oldClose(ev);
                 controller.reset();
                 connectWebsocket();
             };

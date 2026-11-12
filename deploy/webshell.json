@@ -1,0 +1,10 @@
+{
+    "Addr": "127.0.0.1:8080",
+    "Rootdir": "/opt/trymosml/web",
+    "Command": "/opt/trymosml/deploy/repl.py",
+    "CommandArgs": [],
+    "SessionTimeoutSeconds": 1800,
+    "IdleTimeoutSeconds": 600,
+    "MaxSessions": 4,
+    "MaxMessageBytes": 1048576
+}

@@ -1,36 +1,40 @@
 package main
 
-// registry maintains the set of active clients
+import "sync"
 
+// Registry bounds concurrent sessions and waits for their cleanup at shutdown.
 type Registry struct {
-	// Registered clients.
-	clients map[*Client]bool
-
-	// Register a client.
-	register chan *Client
-
-	// Unregister a client.
-	unregister chan *Client
+	mu       sync.Mutex
+	wg       sync.WaitGroup
+	active   int
+	limit    int
+	stopping bool
 }
 
-func newRegistry() *Registry {
-	return &Registry{
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
-		clients:    make(map[*Client]bool),
+func newRegistry(limit int) *Registry { return &Registry{limit: limit} }
+
+func (r *Registry) acquire() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.stopping || r.active >= r.limit {
+		return false
 	}
+	r.active++
+	r.wg.Add(1)
+	return true
 }
 
-func (r *Registry) run() {
-	for {
-		select {
-		case client := <-r.register:
-			r.clients[client] = true
-		case client := <-r.unregister:
-			if _, ok := r.clients[client]; ok {
-				delete(r.clients, client)
-				//close(client.send)
-			}
-		}
-	}
+func (r *Registry) release() {
+	r.mu.Lock()
+	r.active--
+	r.mu.Unlock()
+	r.wg.Done()
 }
+
+func (r *Registry) stop() {
+	r.mu.Lock()
+	r.stopping = true
+	r.mu.Unlock()
+}
+
+func (r *Registry) wait() { r.wg.Wait() }

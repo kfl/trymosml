@@ -1,6 +1,10 @@
 {
-    "Addr": ":8080",
+    "Addr": "127.0.0.1:8080",
     "Rootdir": "./web",
-    "Command": "/usr/bin/docker",
-    "CommandArgs": ["run", "-i", "--rm", "--memory=10m", "--net=none", "-h", "mosmlserver", "kflarsen/trymosml"]
+    "Command": "./deploy/repl.py",
+    "CommandArgs": [],
+    "SessionTimeoutSeconds": 1800,
+    "IdleTimeoutSeconds": 600,
+    "MaxSessions": 4,
+    "MaxMessageBytes": 1048576
 }

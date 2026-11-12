@@ -1,2 +1,4 @@
 *~
+/deployment-backups/
+/dist/
 _go-v*

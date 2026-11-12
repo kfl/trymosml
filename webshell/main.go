@@ -1,96 +1,95 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"flag"
-	"io/ioutil"
+	"fmt"
 	"log"
 	"net/http"
-
-	"crypto/tls"
-	"golang.org/x/crypto/acme/autocert"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 )
 
-func loggingHandler(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Println("STATIC", r.Method, r.URL.Path, "|", r.RemoteAddr, r.UserAgent())
-		h.ServeHTTP(w, r)
-	})
-}
-
 type Configuration struct {
-	Addr        string
-	Rootdir     string
-	Command     string
-	CommandArgs []string
+	Addr                  string
+	Rootdir               string
+	Command               string
+	CommandArgs           []string
+	SessionTimeoutSeconds int
+	IdleTimeoutSeconds    int
+	MaxSessions           int
+	MaxMessageBytes       int64
 }
 
-var conf = flag.String("conf", "conf.json", "JSON configuration file")
-
-func readConfig(filename string) Configuration {
-	file, err := ioutil.ReadFile(filename)
-	if err != nil {
-		log.Fatal("Config File Missing. ", err)
+func readConfig(filename string) (Configuration, error) {
+	config := Configuration{
+		Addr: "127.0.0.1:8080", Rootdir: "./web",
+		SessionTimeoutSeconds: 1800, IdleTimeoutSeconds: 600,
+		MaxSessions: 4, MaxMessageBytes: 1 << 20,
 	}
-
-	var config Configuration
-	err = json.Unmarshal(file, &config)
+	data, err := os.ReadFile(filename)
 	if err != nil {
-		log.Fatal("Config Parse Error: ", err)
+		return config, err
 	}
+	if err := json.Unmarshal(data, &config); err != nil {
+		return config, err
+	}
+	if config.Command == "" || config.Addr == "" || config.Rootdir == "" ||
+		config.SessionTimeoutSeconds <= 0 || config.IdleTimeoutSeconds <= 0 ||
+		config.MaxSessions <= 0 || config.MaxMessageBytes <= 0 {
+		return config, fmt.Errorf("command, address, root directory and positive session limits are required")
+	}
+	return config, nil
+}
 
-	return config
+func newHandler(ctx context.Context, config Configuration, reg *Registry) http.Handler {
+	mux := http.NewServeMux()
+	mux.Handle("/", http.FileServer(http.Dir(config.Rootdir)))
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		fmt.Fprintln(w, "ok")
+	})
+	mux.HandleFunc("/webshell", func(w http.ResponseWriter, r *http.Request) {
+		serveClient(ctx, reg, config, w, r)
+	})
+	return mux
 }
 
 func main() {
+	conf := flag.String("conf", "conf.json", "JSON configuration file")
 	flag.Parse()
-
-	config := readConfig(*conf)
-	cmd := config.Command
-	cmdArgs := config.CommandArgs
-	reg := newRegistry()
-	go reg.run()
-
-	mux := http.NewServeMux()
-	// Normal resources
-	mux.Handle("/", loggingHandler(http.FileServer(http.Dir(config.Rootdir))))
-
-	// websockets
-	mux.HandleFunc("/webshell", func(w http.ResponseWriter, r *http.Request) {
-		log.Println("DYNAMIC Starting webshell", "|", r.RemoteAddr, r.UserAgent())
-		serveClient(reg, cmd, cmdArgs, w, r)
-	})
-
-	// TLS via Let's Encrypt
-	m := &autocert.Manager{
-		Prompt:     autocert.AcceptTOS,
-		HostPolicy: autocert.HostWhitelist("try.mosml.org"),
-		Email:      "ken@friislarsen.net",
-		Cache:      autocert.DirCache("golang-autocert"),
+	config, err := readConfig(*conf)
+	if err != nil {
+		log.Fatal(err)
 	}
-
-	// HTTPS server on port 443
-	httpsServer := &http.Server{
-		Addr:      ":https",
-		TLSConfig: &tls.Config{GetCertificate: m.GetCertificate},
-		Handler:   mux,
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+	reg := newRegistry(config.MaxSessions)
+	server := &http.Server{
+		Addr: config.Addr, Handler: newHandler(ctx, config, reg),
+		ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second,
 	}
-
-	// Start HTTPS server
-	go func() {
-		log.Printf("Starting https server at: %s", httpsServer.Addr)
-		log.Fatalf("ListenAndServeTLS: %v", httpsServer.ListenAndServeTLS("", ""))
-	}()
-
-	// HTTP server on port 80 for ACME challenges and redirect
-	// This is critical for Let's Encrypt to verify domain ownership
-	go func() {
-		log.Println("Starting http server on :80 for ACME challenges")
-		// m.HTTPHandler(nil) handles ACME challenges and redirects to HTTPS
-		log.Fatalf("ListenAndServe :80: %v", http.ListenAndServe(":80", m.HTTPHandler(nil)))
-	}()
-
-	// HTTP server on custom port (for backward compatibility)
-	log.Printf("Starting http server at: %s", config.Addr)
-	log.Fatalf("ListenAndServe: %v", http.ListenAndServe(config.Addr, mux))
+	serverErr := make(chan error, 1)
+	go func() { serverErr <- server.ListenAndServe() }()
+	log.Printf("Serving HTTP at %s (HTTPS is handled by Caddy)", config.Addr)
+	select {
+	case <-ctx.Done():
+	case err = <-serverErr:
+		cancel()
+	}
+	reg.stop()
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer shutdownCancel()
+	if shutdownErr := server.Shutdown(shutdownCtx); shutdownErr != nil {
+		log.Printf("HTTP shutdown: %v", shutdownErr)
+	}
+	// HTTP Shutdown does not wait for hijacked WebSocket connections.
+	reg.wait()
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		log.Fatal(err)
+	}
 }
